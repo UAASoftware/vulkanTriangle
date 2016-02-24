@@ -5,7 +5,7 @@ add_executable(vkTriangle
 )
 
 target_link_libraries(vkTriangle
-  vulkan_lunarg
+  vk_lunarg
   vkcpp
   glfw
   glm

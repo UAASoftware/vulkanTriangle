@@ -10,15 +10,15 @@
 // vulkan validation layers
 const std::vector<const char*> validationLayers =
 {
-	//"VK_LAYER_GOOGLE_threading",
-	//"VK_LAYER_LUNARG_device_limits",
-	//"VK_LAYER_LUNARG_draw_state",
-	//"VK_LAYER_LUNARG_image",
-	//"VK_LAYER_LUNARG_mem_tracker",
-	//"VK_LAYER_LUNARG_object_tracker",
-	//"VK_LAYER_LUNARG_param_checker",
-	//"VK_LAYER_LUNARG_swapchain",
-	//"VK_LAYER_GOOGLE_unique_objects",
+	"VK_LAYER_LUNARG_threading",
+	"VK_LAYER_LUNARG_device_limits",
+	"VK_LAYER_LUNARG_draw_state",
+	"VK_LAYER_LUNARG_image",
+	"VK_LAYER_LUNARG_mem_tracker",
+	"VK_LAYER_LUNARG_object_tracker",
+	"VK_LAYER_LUNARG_param_checker",
+	"VK_LAYER_LUNARG_swapchain",
+	"VK_LAYER_GOOGLE_unique_objects",
 };
 
 uint32_t displayWidth = 640;
@@ -37,6 +37,34 @@ int main()
 
 	vk::Result result;
 
+	// Check out validation layers
+	{
+		uint32_t layerCount;
+		if ((result = vk::enumerateInstanceLayerProperties(&layerCount, nullptr)) != vk::Result::eVkSuccess)
+		{
+			throw std::runtime_error("vk::enumerateInstanceLayerProperties -> " + std::to_string((int)result));
+		}
+		std::vector<vk::LayerProperties> layers(layerCount);
+		if ((result = vk::enumerateInstanceLayerProperties(&layerCount, layers.data())) != vk::Result::eVkSuccess)
+		{
+			throw std::runtime_error("vk::enumerateInstanceLayerProperties -> " + std::to_string((int)result));
+		}
+
+		for (auto layer : validationLayers)
+		{
+			bool found = false;
+			for (auto layerProp : layers)
+			{
+				if (!strcmp(layerProp.layerName(), layer))
+				{
+					found = true;
+					break;
+				}
+			}
+			if (!found) throw std::runtime_error("Validation layer not found : " + std::string(layer));
+		}
+	}
+
 	// Setup vulkan instance
 	vk::Instance vulkanInstance;
 	{
@@ -47,15 +75,59 @@ int main()
 
 		// GLFW gets us extensions we need to support display
 		int count;
-		const char** extensions = glfwGetRequiredInstanceExtensions(&count);
+		const char** glfwExts = glfwGetRequiredInstanceExtensions(&count);
+		std::vector<const char*> extensions(glfwExts, glfwExts + count);
+		if (validationLayers.size() > 0)
+		{
+			extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+		}
 		vk::InstanceCreateInfo instanceCreateInfo(0, &applicationInfo,
 			(uint32_t)validationLayers.size(), validationLayers.data(), // layers
-			count, extensions); // extensions
+			(uint32_t)extensions.size(), extensions.data()); // extensions
 
 		//@todo check extensions exist
 		if ((result = vk::createInstance(&instanceCreateInfo, nullptr, &vulkanInstance)) != vk::Result::eVkSuccess)
 		{
 			throw std::runtime_error("vk::createInstance -> " + std::to_string((int)result));
+		}
+
+		if (validationLayers.size() > 0)
+		{
+			auto debugCallback = [](
+				VkDebugReportFlagsEXT flags,
+				VkDebugReportObjectTypeEXT objType,
+				uint64_t srcObject,
+				size_t location,
+				int32_t msgCode,
+				const char* pLayerPrefix,
+				const char* pMsg,
+				void* pUserData)
+				-> VkBool32
+			{
+				std::string msg(pMsg);
+
+				if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
+				{
+					throw std::runtime_error("debugCallback got error");
+				}
+				else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
+				{
+					throw std::runtime_error("debugCallback got warning");
+				}
+
+				return false;
+			};
+
+			auto createDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vk::getInstanceProcAddr(vulkanInstance, "vkCreateDebugReportCallbackEXT");
+
+			vk::DebugReportCallbackCreateInfoEXT debugInfo(
+				vk::DebugReportFlagBitsEXT::eError | vk::DebugReportFlagBitsEXT::eWarning,
+				debugCallback, nullptr);
+			vk::DebugReportCallbackEXT debugReportCallback;
+			if (createDebugReportCallbackEXT(vulkanInstance, &(VkDebugReportCallbackCreateInfoEXT)debugInfo, nullptr, &debugReportCallback) != 0)
+			{
+				throw std::runtime_error("vk::createDebugReportCallbackEXT -> " + std::to_string((int)result));
+			}
 		}
 	}
 
@@ -107,7 +179,7 @@ int main()
 	vk::Queue graphicsQueue;
 	{
 		// device extensions
-		std::vector<const char*> enabledExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_NV_glsl_shader" };
+		std::vector<const char*> enabledExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 		// get the graphics queue off the physical device
 		{
@@ -149,15 +221,28 @@ int main()
 
 		vk::getDeviceQueue(vDevice, graphicsQueueFamily, 0, &graphicsQueue);
 	}
-
+	
 	// Setup interop with windowing system, GLFW handles it
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // tell glfw vulkan runs the show
 	GLFWwindow* window = glfwCreateWindow(displayWidth, displayHeight, "vkTriangle", NULL, NULL); // create window
-
+	
 	vk::SurfaceKHR surface;
-	if (glfwCreateWindowSurface(vulkanInstance, window, NULL, &surface) != VK_SUCCESS)
 	{
-		throw std::runtime_error("glfwCreateWindowSurface failure");
+		if (glfwCreateWindowSurface(vulkanInstance, window, NULL, &surface) != VK_SUCCESS)
+		{
+			throw std::runtime_error("glfwCreateWindowSurface failure");
+		}
+
+		// double check GLFW's surface
+		vk::Bool32 supported;
+		if ((result = vk::getPhysicalDeviceSurfaceSupportKHR(physicalDevice, graphicsQueueFamily, surface, &supported)) != vk::Result::eVkSuccess)
+		{
+			throw std::runtime_error("vk::getPhysicalDeviceSurfaceSupportKHR -> " + std::to_string((int)result));
+		}
+		if (!supported)
+		{
+			throw std::runtime_error("Surface not supported, vkGetPhysicalDeviceSurfaceSupportKHR is false");
+		}
 	}
 
 	// Get a format supported by the display surface
@@ -182,10 +267,6 @@ int main()
 		}
 		surfaceColorSpace = surfaceFormats[0].colorSpace();
 	}
-
-	//// @todo optional, enable debug logging
-	// console output
-	//vkDebug::setupDebugging(instance, VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT, NULL);
 
 	// Command pool
 	vk::CommandPool commandPool;
@@ -254,7 +335,7 @@ int main()
 			VK_NULL_HANDLE);
 		vk::createSwapchainKHR(vDevice, &swapCreateInfo, nullptr, &swapchain);
 	}
-
+	
 	// setup vulkan image views into swapchain buffers
 	struct SwapChainImage {
 		VkImage image; // vulkan image
@@ -348,7 +429,7 @@ int main()
 			throw std::runtime_error("vk::createImageView -> " + std::to_string((int)result));
 		}
 	}
-
+	
 	// renderpass setup
 	vk::RenderPass renderPass;
 	{
@@ -421,7 +502,7 @@ int main()
 		for (const auto& swap : swapChainViews)
 		{
 			vk::ImageMemoryBarrier barrier(
-				vk::AccessFlagBits::eHostWrite | vk::AccessFlagBits::eTransferWrite,
+				vk::AccessFlags(),
 				vk::AccessFlags(),
 				vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKhr,
 				VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, swap.image,
@@ -433,7 +514,7 @@ int main()
 		}
 		// transition depth stencil image (to VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 		vk::ImageMemoryBarrier barrier(
-			vk::AccessFlagBits::eHostWrite | vk::AccessFlagBits::eTransferWrite,
+			vk::AccessFlags(),
 			vk::AccessFlagBits::eDepthStencilAttachmentWrite,
 			vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal,
 			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, depthStencilImage,
@@ -461,7 +542,7 @@ int main()
 
 		vk::freeCommandBuffers(vDevice, commandPool, 1, &layoutCmdBuf);
 	}
-
+	
 	// setup commandbuffers for swapchain images, plus one extra for post-presentation barrier
 	std::vector<vk::CommandBuffer> swapchainCmdBuffers(swapChainViews.size() + 1);
 	vk::CommandBuffer presentBarrierCmdBuffer;
@@ -610,7 +691,7 @@ int main()
 		memcpy(pData, &uboInstance, sizeof(uboInstance));
 		vk::unmapMemory(vDevice, uniformMemory);
 	}
-
+	
 	// descriptor sets
 	vk::DescriptorSetLayout descriptorSetLayout;
 	vk::PipelineLayout pipelineLayout;
@@ -628,7 +709,7 @@ int main()
 			throw std::runtime_error("vk::createPipelineLayout -> " + std::to_string((int)result));
 		}
 	}
-
+	
 	// rendering pipeline state object
 	vk::Pipeline pipeline;
 	{
@@ -649,8 +730,8 @@ int main()
 		std::string vertStr((std::istreambuf_iterator<char>(vertFile)), std::istreambuf_iterator<char>());
 		std::ifstream fragFile("triangle.frag.spv");
 		std::string fragStr((std::istreambuf_iterator<char>(fragFile)), std::istreambuf_iterator<char>());
-
-		vk::PipelineShaderStageCreateInfo shaderStages[2] = {
+		
+		vk::PipelineShaderStageCreateInfo shaderStages[] = {
 			vk::PipelineShaderStageCreateInfo(0, vk::ShaderStageFlagBits::eVertex,
 				loadShader(vertStr, vDevice),
 				"VertexShader", nullptr),
@@ -705,12 +786,14 @@ int main()
 			&dynamicStateCreate,
 			pipelineLayout, renderPass,
 			0, VK_NULL_HANDLE, 0);
-
+		
 		if ((result = vk::createGraphicsPipelines(vDevice, pipelineCache, 1, &graphicsPipelineCreateInfo, nullptr, &pipeline)) != vk::Result::eVkSuccess)
 		{
 			throw std::runtime_error("vk::createGraphicsPipelines -> " + std::to_string((int)result));
 		}
 	}
+	
+	return 0;
 
 	// descriptor pool
 	vk::DescriptorPool descriptorPool;
