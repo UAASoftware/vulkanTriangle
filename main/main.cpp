@@ -726,11 +726,11 @@ int main()
 			return shaderModule;
 		};
 
-		std::ifstream vertFile("triangle.vert.spv");
+		std::ifstream vertFile("triangle.vert.spv", std::ios::in | std::ios::binary);
 		std::string vertStr((std::istreambuf_iterator<char>(vertFile)), std::istreambuf_iterator<char>());
-		std::ifstream fragFile("triangle.frag.spv");
+		std::ifstream fragFile("triangle.frag.spv", std::ios::in | std::ios::binary);
 		std::string fragStr((std::istreambuf_iterator<char>(fragFile)), std::istreambuf_iterator<char>());
-		
+
 		vk::PipelineShaderStageCreateInfo shaderStages[] = {
 			vk::PipelineShaderStageCreateInfo(0, vk::ShaderStageFlagBits::eVertex,
 				loadShader(vertStr, vDevice),
@@ -747,7 +747,7 @@ int main()
 			// position attribute (x,y,z)
 			vk::VertexInputAttributeDescription(0, sVertexBufferBindId, vk::Format::eR32G32B32Sfloat, 0),
 			// color attribute (r,g,b)
-			vk::VertexInputAttributeDescription(0, sVertexBufferBindId, vk::Format::eR32G32B32Sfloat, 3 * sizeof(float)),
+			vk::VertexInputAttributeDescription(1, sVertexBufferBindId, vk::Format::eR32G32B32Sfloat, 3 * sizeof(float)),
 		};
 		vk::PipelineVertexInputStateCreateInfo vertexInputCreate(0, 1, &vertexBindDesc, 
 			(uint32_t)vertexAttribDescs.size(), vertexAttribDescs.data());
@@ -763,8 +763,10 @@ int main()
 
 		vk::PipelineMultisampleStateCreateInfo multisampleStateCreate(0, vk::SampleCountFlagBits::e1, false, 0, nullptr, false, false);
 
-		vk::PipelineDepthStencilStateCreateInfo depthStencilStateCreate(0, true, true, vk::CompareOp::eAlways, false, false,
-			vk::StencilOpState(), vk::StencilOpState(), 0, 0);
+		vk::PipelineDepthStencilStateCreateInfo depthStencilStateCreate(0, true, true, vk::CompareOp::eLessOrEqual, false, false,
+			vk::StencilOpState(vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::CompareOp::eAlways, 0, 0, 0),
+			vk::StencilOpState(vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::CompareOp::eAlways, 0, 0, 0),
+			0, 0);
 
 		vk::PipelineColorBlendAttachmentState blendAttachment;
 		vk::PipelineColorBlendStateCreateInfo colorBlendStateCreate(0, false, vk::LogicOp::eClear, 1, &blendAttachment, { 0 });
