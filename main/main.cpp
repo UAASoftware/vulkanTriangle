@@ -65,14 +65,17 @@ int main()
 {
 	glfwInit();
 
+    printf("line %d\n", __LINE__);
 	if (!glfwVulkanSupported())
 	{
 		throw std::runtime_error("!glfwVulkanSupported");
 	}
 
+    printf("line %d\n", __LINE__);
 	vk::Result result;
 
 	// Check out validation layers
+    printf("line %d\n", __LINE__);
 	{
 		uint32_t layerCount;
 		if ((result = vk::enumerateInstanceLayerProperties(&layerCount, nullptr)) != vk::Result::eSuccess)
@@ -102,6 +105,7 @@ int main()
 
 	// Setup vulkan instance
 	vk::Instance vulkanInstance;
+    printf("line %d\n", __LINE__);
 	{
 		vk::ApplicationInfo applicationInfo(
 			"vkTriangle", 1, // app name,version
@@ -143,11 +147,11 @@ int main()
                 printf("DEBUG LAYER: %s\n", msg.c_str());
 				if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
 				{
-					throw std::runtime_error("debugCallback got error");
+					//throw std::runtime_error("debugCallback got error");
 				}
 				else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
 				{
-					throw std::runtime_error("debugCallback got warning");
+					//throw std::runtime_error("debugCallback got warning");
 				}
 
 				return false;
@@ -167,8 +171,10 @@ int main()
 	}
 
 	// Get physical device
+    printf("line %d\n", __LINE__);
 	vk::PhysicalDevice physicalDevice;
 	vk::PhysicalDeviceMemoryProperties physDevMemProps;
+    printf("line %d\n", __LINE__);
 	{
 		uint32_t physCount = 0;
 		vulkanInstance.enumeratePhysicalDevices(&physCount, nullptr);
@@ -209,22 +215,31 @@ int main()
 	};
 
 	// Create vulkan device from physical
+    printf("line %d\n", __LINE__);
 	vk::Device vDevice;
 	uint32_t graphicsQueueFamily;
 	vk::Queue graphicsQueue;
+    printf("line %d\n", __LINE__);
 	{
 		// device extensions
+        printf("line %d\n", __LINE__);
 		std::vector<const char*> enabledExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 		// get the graphics queue off the physical device
 		{
+            printf("line %d\n", __LINE__);
 			uint32_t queueCount;
+            printf("line %d\n", __LINE__);
             physicalDevice.getQueueFamilyProperties(&queueCount, NULL);
+            printf("line %d\n", __LINE__);
 			std::vector<vk::QueueFamilyProperties> queueProps(queueCount);
+            printf("line %d\n", __LINE__);
             physicalDevice.getQueueFamilyProperties(&queueCount, queueProps.data());
+            printf("line %d\n", __LINE__);
 
 			for (graphicsQueueFamily = 0; graphicsQueueFamily < queueCount; graphicsQueueFamily++)
 			{
+                printf("line %d\n", __LINE__);
 				// queue must support VK_QUEUE_GRAPHICS_BIT
 				if (queueProps[graphicsQueueFamily].queueFlags & vk::QueueFlagBits::eGraphics)
 				{
@@ -235,33 +250,43 @@ int main()
 					}
 				}
 			}
+            printf("line %d\n", __LINE__);
 			if (graphicsQueueFamily >= queueCount)
 			{
+                printf("line %d\n", __LINE__);
 				throw std::runtime_error("physical device has no compatible graphics queue");
 			}
 		}
 
+        printf("line %d\n", __LINE__);
 		std::vector<float> queuePriorities = { 0.0 };
+        printf("line %d\n", __LINE__);
 		vk::DeviceQueueCreateInfo deviceQueueCreateInfo(vk::DeviceQueueCreateFlags(), graphicsQueueFamily, (uint32_t)queuePriorities.size(), queuePriorities.data());
 
+        printf("line %d\n", __LINE__);
 		vk::DeviceCreateInfo deviceCreateInfo(vk::DeviceCreateFlags(), 1, &deviceQueueCreateInfo,
 			(uint32_t)validationLayers.size(), validationLayers.data(), // validation layers
 			(uint32_t)enabledExtensions.size(), enabledExtensions.data(), // extensions
 			nullptr); // phys device features
 
+        printf("line %d\n", __LINE__);
 		if ((result = physicalDevice.createDevice(&deviceCreateInfo, nullptr, &vDevice)) != vk::Result::eSuccess)
 		{
+            printf("line %d\n", __LINE__);
 			throw std::runtime_error("vk::createDevice -> " + std::to_string((int)result));
 		}
 
+        printf("line %d\n", __LINE__);
 		vDevice.getQueue(graphicsQueueFamily, 0, &graphicsQueue);
 	}
 	
 	// Setup interop with windowing system, GLFW handles it
+    printf("line %d\n", __LINE__);
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // tell glfw vulkan runs the show
 	GLFWwindow* window = glfwCreateWindow(displayWidth, displayHeight, "vkTriangle", NULL, NULL); // create window
 	
 	vk::SurfaceKHR surface;
+    printf("line %d\n", __LINE__);
     VkSurfaceKHR surface_ = (VkSurfaceKHR) surface;
 	{
 		if (glfwCreateWindowSurface(vulkanInstance, window, NULL, &(VkSurfaceKHR) surface_) != VK_SUCCESS)
@@ -283,6 +308,7 @@ int main()
 	}
 
 	// Get a format supported by the display surface
+    printf("line %d\n", __LINE__);
 	vk::Format surfaceFormat;
 	vk::ColorSpaceKHR surfaceColorSpace;
 	{
@@ -316,6 +342,7 @@ int main()
 	}
 
 	// Swapchain setup
+    printf("line %d\n", __LINE__);
 	vk::SwapchainKHR swapchain;
 	{
 		vk::SurfaceCapabilitiesKHR surfaceCaps;
@@ -378,6 +405,7 @@ int main()
 		VkImage image; // vulkan image
 		VkImageView view; // view into the image
 	};
+    printf("line %d\n", __LINE__);
 	std::vector<SwapChainImage> swapChainViews;
 	{
 		uint32_t swapchainImageCount;
@@ -408,6 +436,7 @@ int main()
 	vk::Image depthStencilImage;
 	vk::DeviceMemory depthStencilMemory;
 	vk::ImageView depthStencilView;
+    printf("line %d\n", __LINE__);
 	{
 		// get a format for depth stencil supported by hardware
 		std::vector<vk::Format> preferredFormatList = {
@@ -468,6 +497,7 @@ int main()
 	
 	// renderpass setup
 	vk::RenderPass renderPass;
+    printf("line %d\n", __LINE__);
 	{
 		vk::AttachmentDescription attachDescs[2] = {
 			// rgb surface attachment
@@ -504,6 +534,7 @@ int main()
 
 	// framebuffers setup
 	std::vector<vk::Framebuffer> framebuffers(swapChainViews.size());
+    printf("line %d\n", __LINE__);
 	{
 		vk::ImageView attachments[2]; // color surface, depthstencil pair
 		vk::FramebufferCreateInfo fbCreateInfo(vk::FramebufferCreateFlags(), renderPass, 2, attachments, displayWidth, displayHeight, 1);
@@ -519,6 +550,7 @@ int main()
 	}
 
 	// initial image layout setups
+    printf("line %d\n", __LINE__);
 	{
 		// Create temp command buffer
 		vk::CommandBuffer layoutCmdBuf;
@@ -574,6 +606,7 @@ int main()
 	
 	// setup commandbuffers for swapchain images, plus one extra for post-presentation barrier
 	std::vector<vk::CommandBuffer> swapchainCmdBuffers(swapChainViews.size() + 1);
+    printf("line %d\n", __LINE__);
 	vk::CommandBuffer presentBarrierCmdBuffer;
 	{
 		vk::CommandBufferAllocateInfo cmdBufAllocInfo(commandPool, vk::CommandBufferLevel::ePrimary, (uint32_t)swapchainCmdBuffers.size());
@@ -587,6 +620,7 @@ int main()
 
 	// upload vertex data
 	vk::Buffer vertexBuffer;
+    printf("line %d\n", __LINE__);
 	vk::Buffer indexBuffer;
 	{
 		// Triangle vertex data
@@ -622,7 +656,7 @@ int main()
 			void* vBufRamData;
 			vBufRamData = vDevice.mapMemory(vBufMemory, 0, memAllocInfo.allocationSize, vk::MemoryMapFlags());
 			memcpy(vBufRamData, vertexData.data(), vertexBytes);
-            vk::MappedMemoryRange range(vBufMemory, 0, memoryReqs.size);
+            vk::MappedMemoryRange range(vBufMemory, 0, vertexBytes);
             vDevice.flushMappedMemoryRanges(1, &range);
 			vDevice.unmapMemory(vBufMemory);
 			vDevice.bindBufferMemory(vertexBuffer, vBufMemory, 0);
@@ -654,7 +688,7 @@ int main()
 				throw std::runtime_error("vk::mapMemory -> " + std::to_string((int)result));
 			}
 			memcpy(indexRamData, indexData.data(), indexBytes);
-            vk::MappedMemoryRange range(indexMemory, 0, memoryReqs.size);
+            vk::MappedMemoryRange range(indexMemory, 0, indexBytes);
             vDevice.flushMappedMemoryRanges(1, &range);
 			vDevice.unmapMemory(indexMemory);
 			vDevice.bindBufferMemory(indexBuffer, indexMemory, 0);
@@ -662,6 +696,7 @@ int main()
 	}
 
 	// Uniform buffer object
+    printf("line %d\n", __LINE__);
 	struct ubo {
 		glm::mat4 projMatrix;
 		glm::mat4 modelMatrix;
@@ -695,8 +730,8 @@ int main()
 			return degrees * 3.14159265358979323f / 180.f;
 		};
 
-		uboInstance.projMatrix = glm::perspective(d2r(60.0f), (float)displayWidth / (float)displayHeight, 0.1f, 256.0f);
-		uboInstance.viewMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -2.5f));
+		uboInstance.projMatrix = glm::perspective(60.0f, (float)displayWidth / (float)displayHeight, 0.001f, 256.0f);
+		uboInstance.viewMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -0.2f));
 
 		uboInstance.modelMatrix = glm::mat4();
 		uboInstance.modelMatrix = glm::rotate(uboInstance.modelMatrix, 0.f, glm::vec3(1.0f, 0.0f, 0.0f));
@@ -715,6 +750,7 @@ int main()
 	}
 	
 	// descriptor sets
+    printf("line %d\n", __LINE__);
 	vk::DescriptorSetLayout descriptorSetLayout;
 	vk::PipelineLayout pipelineLayout;
 	{
@@ -733,6 +769,7 @@ int main()
 	}
 	
 	// rendering pipeline state object
+    printf("line %d\n", __LINE__);
 	vk::Pipeline pipeline;
 	{
 		// quick hack: VK_NV_glsl_shader allows glsl instead of SPIRV
@@ -788,12 +825,16 @@ int main()
             vk::SampleCountFlagBits::e1, false, 0, nullptr, false, false);
 
 		vk::PipelineDepthStencilStateCreateInfo depthStencilStateCreate(vk::PipelineDepthStencilStateCreateFlags(),
-            true, true, vk::CompareOp::eLessOrEqual, false, false,
+            false, false, vk::CompareOp::eLessOrEqual, false, false,
 			vk::StencilOpState(vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::CompareOp::eAlways, 0, 0, 0),
 			vk::StencilOpState(vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::StencilOp::eKeep, vk::CompareOp::eAlways, 0, 0, 0),
 			0, 0);
 
-		vk::PipelineColorBlendAttachmentState blendAttachment;
+		vk::PipelineColorBlendAttachmentState blendAttachment(
+            VK_FALSE, vk::BlendFactor::eZero, vk::BlendFactor::eZero, vk::BlendOp::eAdd, vk::BlendFactor::eZero,
+            vk::BlendFactor::eZero, vk::BlendOp::eAdd,
+            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+        );
 		vk::PipelineColorBlendStateCreateInfo colorBlendStateCreate(vk::PipelineColorBlendStateCreateFlags(),
             false, vk::LogicOp::eClear, 1, &blendAttachment, { 0 });
 
@@ -823,6 +864,7 @@ int main()
 	}
 	
 	// descriptor pool
+    printf("line %d\n", __LINE__);
 	vk::DescriptorPool descriptorPool;
 	{
 		vk::DescriptorPoolSize descPoolCounts[] = {
@@ -836,6 +878,7 @@ int main()
 	}
 
 	// descriptor set
+    printf("line %d\n", __LINE__);
 	vk::DescriptorSet descriptorSet;
 	{
 		vk::DescriptorSetAllocateInfo descAllocInfo(descriptorPool, 1, &descriptorSetLayout);
@@ -850,6 +893,7 @@ int main()
 	}
 
 	// swapchain command buffers, load with HelloTriangle
+    printf("line %d\n", __LINE__);
 	{
 		for (uint32_t i = 0; i < swapchainCmdBuffers.size(); i++)
 		{
@@ -864,8 +908,8 @@ int main()
 			}
 
             vk::ImageMemoryBarrier barrier1(
+                vk::AccessFlagBits::eColorAttachmentRead,
                 vk::AccessFlagBits::eColorAttachmentWrite,
-                vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite,
 				vk::ImageLayout::ePresentSrcKHR, vk::ImageLayout::eColorAttachmentOptimal,
 				VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, swapchainImage,
 				vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
@@ -912,6 +956,7 @@ int main()
 
 	// loop
 	uint32_t swapchainBufferIndex;
+    printf("line %d\n", __LINE__);
 	while (true)
 	{
 		//glfw
@@ -948,6 +993,7 @@ int main()
 
         static int frameN = 0;
         printf("frame %d\n", frameN++);
+        glfwPollEvents();
 	}
 
 	return 0;
